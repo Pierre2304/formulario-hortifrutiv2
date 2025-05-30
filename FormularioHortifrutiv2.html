@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pedido CEASA BH - UX Refinado</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    /* --- Reset e base --- */
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f9f9f9; }
+    h1 { text-align: center; margin: 20px 0; color: #333; }
+
+    /* --- Layout Info --- */
+    .info { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 0 10px; }
+    .info label { flex: 1 1 200px; display: flex; flex-direction: column; font-size: 14px; color: #555; }
+    .info input, .info select { padding: 8px; font-size: 14px; margin-top: 4px; border: 1px solid #ccc; border-radius: 4px; }
+    .info input:focus, .info select:focus { border-color: #007acc; outline: none; }
+
+    /* --- Filtro Produto --- */
+    .filtro { text-align: center; margin-top: 10px; }
+    .filtro input { width: 90%; max-width: 400px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+
+    /* --- Tabela --- */
+    .tabela-container { overflow-x: auto; margin: 15px 10px; border: 1px solid #ddd; background: #fff; border-radius: 4px; }
+    table { border-collapse: collapse; width: 100%; min-width: 800px; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #eee; text-align: left; }
+    th { position: sticky; top: 0; background: #007acc; color: #fff; font-weight: bold; }
+    tr:hover { background: #f1faff; }
+    tbody td input { width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 4px; }
+    tbody td input:focus { border-color: #007acc; }
+
+    /* --- Rodapé da Tabela --- */
+    tfoot td { font-weight: bold; background: #f2f2f2; }
+
+    /* --- Botão --- */
+    .btn { display: block; width: 200px; margin: 20px auto; padding: 12px; background: #007acc; color: #fff; border: none; border-radius: 4px; font-size: 16px; cursor: pointer; transition: background 0.2s; }
+    .btn:disabled { background: #aaa; cursor: not-allowed; }
+    .btn:hover:not(:disabled) { background: #005fa3; }
+
+    @media (max-width: 600px) {
+      .info label { flex: 1 1 100%; }
+      .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<h1>Pedido CEASA BH</h1>
+
+<div class="info">
+  <label>
+    Loja:
+    <select id="loja">
+      <option value="">-- selecione --</option>
+      <option>01.Matriz</option>
+      <option>03.Bromélias</option>
+      <option>06.Limoeiro</option>
+      <option>07.Cidade Nobre</option>
+      <option>08.Jd Panorama</option>
+      <option>09.Melo Viana</option>
+    </select>
+  </label>
+  <label>
+    Data:
+    <input type="date" id="data">
+  </label>
+  <label>
+    Responsável:
+    <input type="text" id="responsavel" placeholder="Seu nome">
+  </label>
+</div>
+
+<div class="filtro">
+  <input type="search" id="busca" placeholder="Filtrar produto...">
+</div>
+
+<div class="tabela-container">
+  <table id="tabelaPedido">
+    <thead>
+      <tr>
+        <th>COD</th>
+        <th>PRODUTO</th>
+        <th>EMB</th>
+        <th>ESTOQUE</th>
+        <th>PEDIDO</th>
+      </tr>
+    </thead>
+    <tbody id="corpoTabela"></tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4">Total Pedido:</td>
+        <td id="totalPedido">0</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+<button class="btn" id="btnExcel" onclick="gerarExcel()" disabled>📊 Gerar Excel</button>
+
+<script>
+  // --- Popula a tabela ---
+  const produtos = [
+{ cod: 14650, nome: "ABACATE KG", emb: 18},
+  { cod: 14592, nome: "ABACAXI UN", emb: 12},
+  { cod: 14483, nome: "ABOBORA ITALIANA KG", emb: 17},
+  { cod: 14596, nome: "ABOBORA JAPONESA KG", emb: 19},
+  { cod: 14524, nome: "ABOBORA PESCOCO KG", emb: 1},
+  { cod: 14336, nome: "ABOBORA VERMELHA KG", emb: 20},
+  { cod: 0,     nome: "ALHO EXTRA KG", emb: 10},
+  { cod: 228,   nome: "ALHO PORO UN", emb: 12},
+  { cod: 192,   nome: "AMEIXA PRETA KG", emb: 8},
+  { cod: 13784, nome: "AMEIXA PRETA UN", emb: "20/22"},
+  { cod: 14608, nome: "MANDIOQUINHA BAROA KG", emb: 20},
+  { cod: 8850,  nome: "MANDIOQUINHA BAROA 500G", emb: 10},
+  { cod: 14599, nome: "BANANA CATURRA KG", emb: 15},
+  { cod: 14352, nome: "BANANA DA TERRA KG", emb: 20},
+  { cod: 14601, nome: "BANANA PRATA KG", emb: 15},
+  { cod: 14655, nome: "BATATA ASTERIX KG", emb: 24},
+  { cod: 14651, nome: "BATATA BOLINHA KG", emb: 23},
+  { cod: 14602, nome: "BATATA DOCE BRANCA KG", emb: 19},
+  { cod: 14657, nome: "BATATA DOCE ROXA KG", emb: 19},
+  { cod: 14603, nome: "BATATA EXTRA KG", emb: 23},
+  { cod: 14605, nome: "BETERRABA KG", emb: 20},
+  { cod: 243,   nome: "BROCOLIS AMERICANO BH BDJ UN", emb: 18},
+  { cod: 15168, nome: "CAQUI BDJ UN", emb: "20/10"},
+  { cod: 14680, nome: "CAQUI KG", emb: 1},
+  { cod: 14606, nome: "CEBOLA KG", emb: 19},
+  { cod: 14685, nome: "CEBOLA PIRULITO KG", emb: 19},
+  { cod: 14658, nome: "CEBOLA ROXA KG", emb: 19},
+  { cod: 14609, nome: "CENOURA VERMELHA KG", emb: 20},
+  { cod: 14611, nome: "COCO SECO KG", emb: 20},
+  { cod: 14666, nome: "COCO VERDE UN", emb: 10},
+  { cod: 14141, nome: "COUVE FLOR UN", emb: 6},
+  { cod: 4499,  nome: "FUBA MOINHO D'AGUA 1KG", emb: 12},
+  { cod: 194,   nome: "GENGIBRE KG", emb: 10},
+  { cod: 14612, nome: "GOIABA VERMELHA KG", emb: "6/18"},
+  { cod: 14613, nome: "INHAME KG", emb: 18},
+  { cod: 14171, nome: "KIWI BDJ UN", emb: "20/22"},
+  { cod: 14614, nome: "KIWI KG", emb:1},
+  { cod: 14671, nome: "LARANJA BAHIA IMPORTADA KG", emb: "10/15"},
+  { cod: 14480, nome: "LARANJA BAHIA NACIONAL KG", emb: "10/15"},
+  { cod: 14640, nome: "LARANJA PERA RIO KG", emb: 20},
+  { cod: 14659, nome: "LARANJA SERRA D'AGUA KG", emb: 20},
+  { cod: 14623, nome: "LIMAO KG", emb: 20},
+  { cod: 14441, nome: "LIMAO SICILIANO KG", emb: 15},
+  { cod: 14624, nome: "MACA ARGENTINA KG", emb: 18},
+  { cod: 14642, nome: "MACA VERDE GRANNY SMITH KG", emb: "9/18"},
+  { cod: 14647, nome: "MACA FUJI KG", emb: 18},
+  { cod: 14641, nome: "MACA GALA KG", emb: 18},
+  { cod: 10102, nome: "MACA NECTAR REDINHA PCT 1KG", emb: 19},
+  { cod: 14626, nome: "MANDIOCA A GRANEL C/CASCA KG", emb: 0},
+  { cod: 14628, nome: "MELANCIA KG", emb: 1},
+  { cod: 205,   nome: "MELANCIA BABY KG", emb: 13},
+  { cod: 13853, nome: "MELANCIA DOCE MEL KG", emb: 1},
+  { cod: 14643, nome: "MAMAO PAPAIA FORMOSO KG", emb: 20},
+  { cod: 14625, nome: "MAMAO HAWAI KG", emb: "7/10"},
+  { cod: 14469, nome: "MANGA PALMER KG", emb: 17},
+  { cod: 14686, nome: "MANGA TOMMY KG", emb: 17},
+  { cod: 14627, nome: "MARACUJA KG", emb: 10},
+  { cod: 14629, nome: "MELAO KG", emb: "13/20"},
+  { cod: 14677, nome: "MELAO REI KG", emb: 10},
+  { cod: 14687, nome: "MELAO PELE DE SAPO KG", emb: 10},
+  { cod: 207,   nome: "MEXERICA MURCOT KG", emb: 17},
+  { cod: 14644, nome: "MEXERICA PONKAN KG", emb: 17},
+  { cod: 14409, nome: "MEXERICA CARIOCA KG", emb: 17},
+  { cod: 14630, nome: "NECTARINA KG", emb: 8},
+  { cod: 13856, nome: "PEPINO JAPONES KG", emb: 18},
+  { cod: 14631, nome: "PEPINO KG", emb: 18},
+  { cod: 13858, nome: "PERA WILLIANS KG", emb: 18},
+  { cod: 14216, nome: "PERA ERCOLINI BDJ UN", emb: 10},
+  { cod: 13857, nome: "PERA PACKANS KG", emb: 18},
+  { cod: 14632, nome: "PESSEGO KG", emb: 8},
+  { cod: 14661, nome: "PIMENTAO MISTO KG", emb: 10},
+  { cod: 0,     nome: "RAPADURA  COMUM  ", emb: 20},
+  { cod: 0,     nome: "RAPADURA AMENDOIM", emb: 20},
+  { cod: 0,     nome: "RAPADURA MOÍDA", emb: 20},
+  { cod: 14636, nome: "REPOLHO ROXO KG", emb: 15},
+  { cod: 14665, nome: "REPOLHO VERDE KG", emb: 15},
+  { cod: 14375, nome: "TOMATE GRAPE BDJ UN", emb: 0},
+  { cod: 14135, nome: "UVA CRIMSON/ISIS BDJ UN", emb: 10},
+  { cod: 14133, nome: "UVA ROSADA/NIAGARA BDJ UN", emb: 10},
+  { cod: 14134, nome: "UVA RUBI/BENITAKA BDJ UN", emb: 10},
+  { cod: 14142, nome: "UVA THOMPSON BDJ UN", emb: 10},
+  { cod: 8337,  nome: "Vitória BDJ", emb: 10},
+  { cod: 21482, nome: "PIMENTA BIQUINHO BDJ UND", emb: 4},
+  { cod: 252,   nome: "PIMENTA DEDO DE MOCA BDJ UND", emb: 4}
+    // ... mais produtos
+  ];
+  const corpo = document.getElementById('corpoTabela');
+  produtos.forEach(p=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${p.cod}</td>
+      <td title="${p.nome}">${p.nome}</td>
+      <td>${p.emb}</td>
+      <td><input type="number" min="0" value="0" oninput="atualizaTotal()"></td>
+      <td><input type="number" min="0" value="0" oninput="atualizaTotal()"></td>
+    `;
+    corpo.appendChild(tr);
+  });
+
+  // --- Filtro de produtos ---
+  document.getElementById('busca').addEventListener('input', e=>{
+    const termo=e.target.value.toLowerCase();
+    document.querySelectorAll('#corpoTabela tr').forEach(row=>{
+      const nome=row.cells[1].textContent.toLowerCase();
+      row.style.display = nome.includes(termo)? '' : 'none';
+    });
+    atualizaTotal();
+  });
+
+  // --- Habilitar botão e calcular total pedido ---
+  function validaCampos() {
+    const ok = document.getElementById('loja').value &&
+               document.getElementById('data').value &&
+               document.getElementById('responsavel').value;
+    document.getElementById('btnExcel').disabled = !ok;
+  }
+  ['loja','data','responsavel'].forEach(id=>{
+    document.getElementById(id).addEventListener('change', validaCampos);
+    document.getElementById(id).addEventListener('input', validaCampos);
+  });
+
+  function atualizaTotal() {
+    let total = 0;
+    document.querySelectorAll('#corpoTabela tr').forEach(row=>{
+      if (row.style.display==='none') return;
+      const pedidoVal = parseFloat(row.cells[4].querySelector('input').value) || 0;
+      total += pedidoVal;
+    });
+    document.getElementById('totalPedido').textContent = total;
+  }
+
+  // --- Gerar Excel ---
+  function gerarExcel() {
+    const loja = document.getElementById('loja').value;
+    const data = document.getElementById('data').value;
+    const resp = document.getElementById('responsavel').value;
+
+    const linhas = [
+      ['PEDIDO CEASA BH'],
+      ['Loja', loja],
+      ['Data', data],
+      ['Responsável', resp],
+      [],
+      ['COD','PRODUTO','EMB','ESTOQUE','PEDIDO','Loja','Data','Responsável']
+    ];
+
+    document.querySelectorAll('#corpoTabela tr').forEach(row=>{
+      if(row.style.display==='none') return;
+      const tds = row.querySelectorAll('td');
+      const cod = parseFloat(tds[0].textContent) || 0;
+      const produto = tds[1].textContent;
+      const emb = parseFloat(tds[2].textContent) || 0;
+      const estoque = parseFloat(tds[3].querySelector('input').value) || 0;
+      const pedido = parseFloat(tds[4].querySelector('input').value) || 0;
+      linhas.push([cod, produto, emb, estoque, pedido, loja, data, resp]);
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet(linhas);
+    ws['!cols'] = Array(8).fill().map((_,i)=>({wch: i===1?35:10}));
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Pedido');
+    XLSX.writeFile(wb, `Pedido_${loja}_${data}.xlsx`);
+  }
+</script>
+
+</body>
+</html>
