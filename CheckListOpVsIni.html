@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checklist Operacional</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:400,500,600&display=swap">
+  <style>
+    :root {
+      --color-bg: #f9fafb;
+      --color-primary: #2563eb;
+      --color-secondary: #1f2937;
+      --color-light: #ffffff;
+      --color-muted: #6b7280;
+      --space: 1rem;
+      --radius: 0.5rem;
+      font-family: 'Inter', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: var(--space);
+      background: var(--color-bg);
+      color: var(--color-secondary);
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: var(--color-light);
+      padding: calc(var(--space) * 1.5);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.75rem;
+      text-align: center;
+      color: var(--color-primary);
+    }
+    .info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space);
+      margin-bottom: var(--space);
+    }
+    .info label {
+      flex: 1 1 200px;
+      display: flex;
+      flex-direction: column;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+    .info input,
+    .info select {
+      margin-top: 0.25rem;
+      padding: 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+    }
+    section.question {
+      background: #ffffff;
+      margin-bottom: var(--space);
+      padding: var(--space);
+      border: 1px solid #e5e7eb;
+      border-radius: var(--radius);
+    }
+    section.question h2 {
+      margin: 0 0 var(--space);
+      font-size: 1rem;
+      color: var(--color-secondary);
+    }
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space);
+    }
+    .options label {
+      flex: 1 1 120px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .options input[type="radio"] {
+      accent-color: var(--color-primary);
+    }
+    textarea {
+      width: 100%;
+      margin-top: var(--space);
+      padding: 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: var(--radius);
+      resize: vertical;
+      font-size: 0.9rem;
+      min-height: 3rem;
+    }
+    .score {
+      text-align: center;
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: var(--space) 0;
+    }
+    .actions {
+      display: flex;
+      justify-content: center;
+      gap: var(--space);
+      flex-wrap: wrap;
+    }
+    button {
+      background-color: var(--color-primary);
+      color: var(--color-light);
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.95rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background-color: #1e40af;
+    }
+    @media (max-width: 600px) {
+      .options label { flex: 1 1 100%; }
+      .info { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Checklist Operacional</h1>
+    <div class="info">
+      <label>Loja:
+        <select id="loja"><option value="">-- Selecione --</option>
+          <option>01.Matriz</option>
+          <option>03.Bromélias</option>
+          <option>06.Limoeiro</option>
+          <option>07.Cidade Nobre</option>
+          <option>08.Jd Panorama</option>
+          <option>09.Melo Viana</option>
+        </select>
+      </label>
+      <label>Data:
+        <input type="date" id="data">
+      </label>
+      <label>Responsável:
+        <input type="text" id="responsavel" placeholder="Digite seu nome">
+      </label>
+    </div>
+    <div id="checklistContainer"></div>
+    <p class="score">Pontuação Total: <span id="pontuacaoTotal">100</span></p>
+    <div class="actions">
+      <button onclick="gerarExcel()">📊 Exportar Excel</button>
+      <button onclick="gerarJSON()">🗒️ Exportar JSON</button>
+      <button onclick="gerarPDF()">🖨️ Exportar PDF</button>
+    </div>
+  </div>
+
+  <script>
+    const perguntas = [
+     { texto: "LIMPEZA GERAL DOS CARRINHOS", opcoes: gerarOpcoesPadrao() },
+      { texto: "DISPONIBILIDADE DE CAIXAS NA FRENTE DE CAIXA", opcoes: gerarOpcoesPadrao() },
+      { texto: "QUANTIDADE DE CAIXAS ABERTOS CONDIZ COM DEMANDA DO HORÁRIO", opcoes: gerarOpcoesPadrao() },
+      { texto: "LIMPEZA GERAL DO PISO DA LOJA ESTÁ SATISFATÓRIA", opcoes: gerarOpcoesPadrao() },
+      { texto: "GESTÃO A VISTA PREÇO DIVERGENTE PREENCHIDA", opcoes: gerarOpcoesPadrao() },
+      { texto: "ORGANIZAÇÃO DA ÁREA DO PAPELÃO", opcoes: gerarOpcoesPadrao() },
+      { texto: "ORGANIZAÇÃO DO SETOR DE TROCA(FRIOS E MERCEARIA)", opcoes: gerarOpcoesPadrao() },
+      { texto: "PRODUTOS SEM PREÇO( ATÉ CINCO ITENS)", opcoes: gerarOpcoesPadrao() }     
+    ];
+
+    function gerarOpcoesPadrao() {
+      return [
+        { texto: "BOM", valor: 0 },
+        { texto: "REGULAR", valor: -0.5 },
+        { texto: "RUIM", valor: -1 }
+      ];
+    }
+  
+    function gerarOpcoesEspecificas() {
+      return [
+        { texto: "BOM", valor: 0 },
+        { texto: "REGULAR", valor: -0.5 },
+        { texto: "RUIM", valor: -1 },
+        { texto: "RUPTURA COMERCIAL", valor: -0.1 },
+        { texto: "RUPTURA LOJA", valor: -1 }
+      ];
+    }
+  
+    function gerarOpcoesFila() {
+      return [
+        { texto: "NÃO HÁ FILA", valor: 0 },
+        { texto: "POUCA FILA", valor: -0.5 },
+        { texto: "MUITA FILA", valor: -1 }
+      ];
+    }
+
+    let pontuacaoTotal = 100;
+    const container = document.getElementById("checklistContainer");
+
+    perguntas.forEach((pergunta, index) => {
+      const div = document.createElement("div");
+      div.className = "pergunta";
+
+      const titulo = document.createElement("h2");
+      titulo.textContent = `${index + 1}. ${pergunta.texto}`;
+      div.appendChild(titulo);
+
+      pergunta.opcoes.forEach(opcao => {
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = `pergunta${index}`;
+        input.value = opcao.valor;
+        input.onclick = atualizarPontuacao;
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(` ${opcao.texto} ${opcao.valor < 0 ? `(${opcao.valor})` : ""}`));
+        div.appendChild(label);
+      });
+
+      // Campo de observação
+      const observacao = document.createElement("textarea");
+      observacao.id = `comentario${index}`;
+      observacao.placeholder = "Observações ou comentários (opcional)";
+      div.appendChild(observacao);
+
+      container.appendChild(div);
+    });
+
+    function atualizarPontuacao() {
+      let novaPontuacao = 100;
+      perguntas.forEach((_, index) => {
+        const selecionado = document.querySelector(`input[name="pergunta${index}"]:checked`);
+        if (selecionado) {
+          novaPontuacao += parseFloat(selecionado.value);
+        }
+      });
+      document.getElementById("pontuacaoTotal").textContent = novaPontuacao.toFixed(2);
+    }
+
+    function validarFormulario() {
+      const loja = document.getElementById("loja").value.trim();
+      const data = document.getElementById("data").value.trim();
+      const responsavel = document.getElementById("responsavel").value.trim();
+
+      if (!loja || !data || !responsavel) {
+        alert("⚠️ Preencha todos os campos: Loja, Data e Nome do Responsável.");
+        return false;
+      }
+
+      for (let i = 0; i < perguntas.length; i++) {
+        const respondida = document.querySelector(`input[name="pergunta${i}"]:checked`);
+        if (!respondida) {
+          alert(`⚠️ Responda todas as perguntas. Pergunta ${i + 1} está em branco.`);
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+      function gerarJSON() {
+      if (!validarFormulario()) return;
+  
+      const dados = {
+        loja: document.getElementById("loja").value,
+        data: document.getElementById("data").value,
+        responsavel: document.getElementById("responsavel").value,
+        pontuacao: parseFloat(document.getElementById("pontuacaoTotal").textContent)
+      };
+  
+      const blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "resultado_checklist.json";
+      link.click();
+    }
+  
+
+      async function gerarPDF() {
+        if (!validarFormulario()) return;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        let y = 20;
+
+        const loja = document.getElementById("loja").value;
+        const data = document.getElementById("data").value;
+        const responsavel = document.getElementById("responsavel").value;
+        const pontuacao = document.getElementById("pontuacaoTotal").textContent;
+
+        doc.setFontSize(16);
+        doc.text("Checklist Operacional - Itens com Pendências", 20, y);
+        y += 15;
+        doc.setFontSize(12);
+        doc.text(`Loja: ${loja}`, 20, y); y += 10;
+        doc.text(`Data: ${data}`, 20, y); y += 10;
+        doc.text(`Responsável: ${responsavel}`, 20, y); y += 10;
+        doc.setFontSize(14);
+        doc.text(`Pontuação Final: ${pontuacao}`, 20, y); y += 15;
+
+        doc.setFontSize(11);
+        let temPendencias = false;
+
+        perguntas.forEach((pergunta, index) => {
+          const inputSelecionado = document.querySelector(`input[name="pergunta${index}"]:checked`);
+          const respostaTexto = inputSelecionado
+            ? inputSelecionado.nextSibling.textContent.trim()
+            : "Não respondido";
+          const comentario = document.getElementById(`comentario${index}`).value.trim();
+
+          if (respostaTexto.includes("REGULAR") || respostaTexto.includes("RUIM")) {
+            temPendencias = true;
+
+            const textoPergunta = `${index + 1}. ${pergunta.texto}`;
+            const textoResposta = `Resposta: ${respostaTexto}`;
+            const textoComentario = comentario ? `Comentário: ${comentario}` : null;
+
+            const linhasPergunta = doc.splitTextToSize(textoPergunta, 170);
+            const linhasResposta = doc.splitTextToSize(textoResposta, 170);
+
+            if (y + linhasPergunta.length * 6 + linhasResposta.length * 6 > 280) {
+              doc.addPage();
+              y = 20;
+            }
+
+            linhasPergunta.forEach(linha => {
+              doc.text(linha, 20, y);
+              y += 6;
+            });
+
+            linhasResposta.forEach(linha => {
+              doc.text(linha, 20, y);
+              y += 6;
+            });
+
+            if (textoComentario) {
+              const linhasComentario = doc.splitTextToSize(textoComentario, 170);
+              linhasComentario.forEach(linha => {
+                doc.text(linha, 20, y);
+                y += 6;
+              });
+            }
+
+            y += 4;
+          }
+        });
+
+        if (!temPendencias) {
+          doc.text("Nenhuma pendência encontrada. Todos os itens estão como BOM.", 20, y);
+        }
+
+        doc.save(`Checklist_${loja || 'Loja'}_${data || 'Data'}.pdf`);
+      }
+
+        function gerarExcel() {
+        if (!validarFormulario()) return;
+
+        const loja = document.getElementById("loja").value;
+        const data = document.getElementById("data").value;
+        const responsavel = document.getElementById("responsavel").value;
+        const pontuacao = document.getElementById("pontuacaoTotal").textContent;
+
+        const linhas = [
+          ["Checklist Operacional"],
+          ["Loja", loja],
+          ["Data", data],
+          ["Responsável", responsavel],
+          ["Pontuação Final", pontuacao],
+          [],
+          ["Nº", "Pergunta", "Resposta", "Comentário"]
+        ];
+
+        perguntas.forEach((pergunta, index) => {
+          const inputSelecionado = document.querySelector(`input[name="pergunta${index}"]:checked`);
+          const respostaTexto = inputSelecionado
+            ? inputSelecionado.nextSibling.textContent.trim()
+            : "Não respondido";
+          const comentario = document.getElementById(`comentario${index}`).value.trim();
+
+          linhas.push([
+            index + 1,
+            pergunta.texto,
+            respostaTexto,
+            comentario
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(linhas);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Checklist");
+
+        const nomeArquivo = `Checklist_${loja || 'Loja'}_${data || 'Data'}.xlsx`;
+        XLSX.writeFile(wb, nomeArquivo);
+      }
+  </script>
+
+</body>
+</html>
+
+  <!-- Mantenha o script existente aqui -->
+</body>
+</html>

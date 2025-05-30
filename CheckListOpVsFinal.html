@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checklist Operacional</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:400,500,600&display=swap">
+  <style>
+    :root {
+      --color-bg: #f9fafb;
+      --color-primary: #2563eb;
+      --color-secondary: #1f2937;
+      --color-light: #ffffff;
+      --color-muted: #6b7280;
+      --space: 1rem;
+      --radius: 0.5rem;
+      font-family: 'Inter', sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: var(--space);
+      background: var(--color-bg);
+      color: var(--color-secondary);
+    }
+    .container {
+      max-width: 800px;
+      margin: auto;
+      background: var(--color-light);
+      padding: calc(var(--space) * 1.5);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.75rem;
+      text-align: center;
+      color: var(--color-primary);
+    }
+    .info {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space);
+      margin-bottom: var(--space);
+    }
+    .info label {
+      flex: 1 1 200px;
+      display: flex;
+      flex-direction: column;
+      font-weight: 500;
+      font-size: 0.9rem;
+    }
+    .info input,
+    .info select {
+      margin-top: 0.25rem;
+      padding: 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: var(--radius);
+      font-size: 0.9rem;
+    }
+    section.question {
+      background: #ffffff;
+      margin-bottom: var(--space);
+      padding: var(--space);
+      border: 1px solid #e5e7eb;
+      border-radius: var(--radius);
+    }
+    section.question h2 {
+      margin: 0 0 var(--space);
+      font-size: 1rem;
+      color: var(--color-secondary);
+    }
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space);
+    }
+    .options label {
+      flex: 1 1 120px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .options input[type="radio"] {
+      accent-color: var(--color-primary);
+    }
+    textarea {
+      width: 100%;
+      margin-top: var(--space);
+      padding: 0.5rem;
+      border: 1px solid #d1d5db;
+      border-radius: var(--radius);
+      resize: vertical;
+      font-size: 0.9rem;
+      min-height: 3rem;
+    }
+    .score {
+      text-align: center;
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: var(--space) 0;
+    }
+    .actions {
+      display: flex;
+      justify-content: center;
+      gap: var(--space);
+      flex-wrap: wrap;
+    }
+    button {
+      background-color: var(--color-primary);
+      color: var(--color-light);
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 0.95rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background-color: #1e40af;
+    }
+    @media (max-width: 600px) {
+      .options label { flex: 1 1 100%; }
+      .info { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Checklist Operacional</h1>
+    <div class="info">
+      <label>Loja:
+        <select id="loja"><option value="">-- Selecione --</option>
+          <option>01.Matriz</option>
+          <option>03.Bromélias</option>
+          <option>06.Limoeiro</option>
+          <option>07.Cidade Nobre</option>
+          <option>08.Jd Panorama</option>
+          <option>09.Melo Viana</option>
+        </select>
+      </label>
+      <label>Data:
+        <input type="date" id="data">
+      </label>
+      <label>Responsável:
+        <input type="text" id="responsavel" placeholder="Digite seu nome">
+      </label>
+    </div>
+    <div id="checklistContainer"></div>
+    <p class="score">Pontuação Total: <span id="pontuacaoTotal">100</span></p>
+    <div class="actions">
+      <button onclick="gerarExcel()">📊 Exportar Excel</button>
+      <button onclick="gerarJSON()">🗒️ Exportar JSON</button>
+      <button onclick="gerarPDF()">🖨️ Exportar PDF</button>
+    </div>
+  </div>
+
+  <script>
+    const perguntas = [
+     { texto: "LIMPEZA GERAL DOS CARRINHOS", opcoes: gerarOpcoesPadrao() },
+      { texto: "DISPONIBILIDADE DE CAIXAS NA FRENTE DE CAIXA", opcoes: gerarOpcoesPadrao() },
+      { texto: "QUANTIDADE DE CAIXAS ABERTOS CONDIZ COM DEMANDA DO HORÁRIO", opcoes: gerarOpcoesPadrao() },
+      { texto: "LIMPEZA GERAL DO PISO DA LOJA ESTÁ SATISFATÓRIA", opcoes: gerarOpcoesPadrao() },
+      { texto: "GESTÃO A VISTA PREÇO DIVERGENTE PREENCHIDA", opcoes: gerarOpcoesPadrao() },
+      { texto: "ORGANIZAÇÃO DA ÁREA DO PAPELÃO", opcoes: gerarOpcoesPadrao() },
+      { texto: "ORGANIZAÇÃO DO SETOR DE TROCA(FRIOS E MERCEARIA)", opcoes: gerarOpcoesPadrao() },
+      { texto: "PRODUTOS SEM PREÇO( ATÉ CINCO ITENS)", opcoes: gerarOpcoesPadrao() },
+      { texto: "TERMINAIS DE CONSULTA ESTÃO FUNCIONANDO", opcoes: gerarOpcoesPadrao() },
+      { texto: "CARTÕES DE PONTO MÊS ANTERIOR ASSINADOS", opcoes: gerarOpcoesPadrao() },
+      { texto: "ORGANIZAÇÃO E LIMPEZA  DE DEPÓSITO", opcoes: gerarOpcoesPadrao() },
+      { texto: "DIVUGAÇÃO DE CAMPANHAS ATUAIS", opcoes: gerarOpcoesPadrao() },
+      { texto: "LIMPEZA E HIGIENE  NO AÇOUGUE", opcoes: gerarOpcoesPadrao() },
+      { texto: "CARVÃO - ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BALCÃO DE CARNES COM BOA APRESENTAÇÃO", opcoes: gerarOpcoesPadrao() },
+      { texto: "ILHAS LIMPAS E ABASTECIDAS", opcoes: gerarOpcoesPadrao() },
+      { texto: "COSTELINHA SUINA -ABASTECIDA E PRECIFICADA", opcoes: gerarOpcoesEspecificas() },
+      { texto: "ACÉM - ABASTECIDA E PRECIFICADA", opcoes: gerarOpcoesEspecificas() },
+      { texto: "CHÃ DE DENTRO - ABASTECIDA  E PRECIFICADA", opcoes: gerarOpcoesEspecificas() },
+      { texto: "SORVETE MAIS BARATO - ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesPadrao() },
+      { texto: "FRANGO CONGELADO - ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "ASA ,PEITO,COXA ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "CORTES DE FRANGO A GRANEL ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "LINGUIÇA  - ABASTECIDA E PRECIFICADA", opcoes: gerarOpcoesEspecificas() },
+      { texto: "SALSICHA - ABASTECIDA E PRECIFICADA", opcoes: gerarOpcoesEspecificas() },
+      { texto: "MARGARINA QUALY - ABASTECIDO E PRECIFICADA", opcoes: gerarOpcoesEspecificas() },
+      { texto: "IOGURTE MAIS BARATO BANDEIJA-ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "CHAMYTO ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "DANONINHO - ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "MASSA DE PASTEL - ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "SALGADO FRITO/ASSADOS - ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "ABASTECIMENTOS DE FATIADOS(PRESUNTO E MUSSARELA)", opcoes: gerarOpcoesEspecificas() },
+      { texto: "LEITE LONGA VIDA MAIS BARATO ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "ABASTECIMENTO E QUALIDADE DO PÃO DE SAL", opcoes: gerarOpcoesPadrao() },
+      { texto: "PÃO DOCE-PÃO DE FORMA - ABASTECIDOS E PRECIFICADOS", opcoes: gerarOpcoesPadrao() },
+      { texto: "CONFEITARIA -ABASTECIDA E PRECIFICADA", opcoes: gerarOpcoesEspecificas() },
+      { texto: "LIMPEZA E HIGIENE  NA PADARIA", opcoes: gerarOpcoesPadrao() },
+      { texto: "ORGANIZAÇÃO E LIMPEZA DO  HORTIFRUT", opcoes: gerarOpcoesPadrao() },
+      { texto: "BATATA INGLESA ABASTECIDO PRECIFICADOS E DE QUALIDADE", opcoes: gerarOpcoesEspecificas() },
+      { texto: "CEBOLA ABASTECIDO PRECIFICADO E DE QUALIDADE", opcoes: gerarOpcoesEspecificas() },
+      { texto: "LARANJA PERA RIO ABASTECIDO PRECIFICADO E DE QUALIDADE", opcoes: gerarOpcoesEspecificas() },
+      { texto: "TOMATE ABASTECIDO PRECIFICADO E DE QUALIDADE", opcoes: gerarOpcoesEspecificas() },
+      { texto: "MAÇÃ NACIONAL ABASTECIDO PRECIFICADO E DE QUALIDADE", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BANANA PRATA ABASTECIDO PRECIFICADO E DE QUALIDADE", opcoes: gerarOpcoesEspecificas() },
+      { texto: "ÓLEO DE SOJA 900 ML MAIS BARATO ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "CESTA BASICA ABASTECIDA E EM LOCAL DE FÁCIL ACESSO AO CLIENTE", opcoes: gerarOpcoesEspecificas() },
+      { texto: "AÇÚCAR CRISTAL 5 KG ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "AÇUCAR REFINADA", opcoes: gerarOpcoesEspecificas() },
+      { texto: "ARROZ  GRANJEIRO PCT 5 KG ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "ARROZ REY ARTHUR PCT 5 KG ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "FARINHA DE TRIGO DONA BENTA 1K ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "MACARRÃO STA AMALIA E RENATA ABASTECIDOS E PRECIFICADOS", opcoes: gerarOpcoesEspecificas() },
+      { texto: "EXTRATO DE TOMATE ELEFANTE ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "EXTRATO DE TOMATE COPO 190G MAIS BARATO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "SAZON VERMELHO ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "MILHO VERDE 170G ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "MAIONESE HELLMANS TRADICIONAL 500 GR ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "CAFÉ E FILTRO BRASIL ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "CAFÉ TRÊS CORAÇÕES FORT, TRAD E EXTRA FORTE 500 GR ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "ACHOC TODDY 750 E 370 GR ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BOMBOM GAROTO CX 250GRS ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "NUTRIBOM MILHO E ARROZ ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "MUCILON MILHO E ARROZ ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "MISTURA PRA BOLO VILMA - ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "LEITE NINHO ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "LEITE CONDENSADO MAIS BARATO ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "CREME DE LEITE ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BISCOITO RECHEADO DANIX ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BISCOITO KROKERO 1,5 ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BISCOITO CREAM CRACKER 1,15kg ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BISCOITO PACOTÃO 1,8KG ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BISCOITO  AGUA E SAL,CREAN CRACKER E MAISENA 200G AYMORÉ E MARILAN ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BRAHMA, KAISER ,HEINEKEN LATÃO 473 ML ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BRAHMA, BOEMIA LITRINHO 300 ML ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "REFRIG COCA COLA RETORNÁVEL E PET  2 LTS ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "REFRIG PEPSI  COLA PET  2 LTS ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "REFRIG GUARANÁ ANTARCTICA  2  LTS ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "VINHO NAC PERGOLA TTO SUAVE 1 LT ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "DET PÓ OMO LAVAGEM PERFEITA 1,6 KG ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "DET PÓ TIXAN 800 GR E 1,6KG ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "AMACIANTE YPÊ 2 LTS ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "AMACIANTE BABY SOFT 2 LTS ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "DETERGENTE YPÊ 500 ML ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "BOMBRIL - ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "LIMPADOR VEJA MULTI USO 500 ML ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "PAPEL HIGIENCIO MAIS BARATO LEVE 12 PAGUE 11 ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "SABONETE LUX 85 GR - ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },      
+      { texto: "CREME PARA CABELO SKALA 1 KG ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "CREME DENTAL TRIPLA AÇÃO E MPA 180 E 90G ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "SHAMPOO E CONDICIONADOR SEDA ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "FRALDA MONICA PACOTÃO G e M ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "FRALDA PERSONAL G E M ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "FRALDA TURMA DO BUMBUM ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "COPO AMERICANO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "PALITO DE DENTE", opcoes: gerarOpcoesEspecificas() },
+      { texto: "FOSFORO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "PAPEL TOALHA E GUARDANAPO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "PRESTOBARBA GILETE ULTRAGRIP - ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() },
+      { texto: "RAÇÃO SACO 15KG", opcoes: gerarOpcoesEspecificas() },
+      { texto: "RAÇÃO A GRANEL ABASTECIDO E PRECIFICADO", opcoes: gerarOpcoesEspecificas() }     
+    ];
+
+    function gerarOpcoesPadrao() {
+      return [
+        { texto: "BOM", valor: 0 },
+        { texto: "REGULAR", valor: -0.5 },
+        { texto: "RUIM", valor: -1 }
+      ];
+    }
+  
+    function gerarOpcoesEspecificas() {
+      return [
+        { texto: "BOM", valor: 0 },
+        { texto: "REGULAR", valor: -0.5 },
+        { texto: "RUIM", valor: -1 },
+        { texto: "RUPTURA COMERCIAL", valor: -0.1 },
+        { texto: "RUPTURA LOJA", valor: -1 }
+      ];
+    }
+  
+    function gerarOpcoesFila() {
+      return [
+        { texto: "NÃO HÁ FILA", valor: 0 },
+        { texto: "POUCA FILA", valor: -0.5 },
+        { texto: "MUITA FILA", valor: -1 }
+      ];
+    }
+
+    let pontuacaoTotal = 100;
+    const container = document.getElementById("checklistContainer");
+
+    perguntas.forEach((pergunta, index) => {
+      const div = document.createElement("div");
+      div.className = "pergunta";
+
+      const titulo = document.createElement("h2");
+      titulo.textContent = `${index + 1}. ${pergunta.texto}`;
+      div.appendChild(titulo);
+
+      pergunta.opcoes.forEach(opcao => {
+        const label = document.createElement("label");
+        const input = document.createElement("input");
+        input.type = "radio";
+        input.name = `pergunta${index}`;
+        input.value = opcao.valor;
+        input.onclick = atualizarPontuacao;
+        label.appendChild(input);
+        label.appendChild(document.createTextNode(` ${opcao.texto} ${opcao.valor < 0 ? `(${opcao.valor})` : ""}`));
+        div.appendChild(label);
+      });
+
+      // Campo de observação
+      const observacao = document.createElement("textarea");
+      observacao.id = `comentario${index}`;
+      observacao.placeholder = "Observações ou comentários (opcional)";
+      div.appendChild(observacao);
+
+      container.appendChild(div);
+    });
+
+    function atualizarPontuacao() {
+      let novaPontuacao = 100;
+      perguntas.forEach((_, index) => {
+        const selecionado = document.querySelector(`input[name="pergunta${index}"]:checked`);
+        if (selecionado) {
+          novaPontuacao += parseFloat(selecionado.value);
+        }
+      });
+      document.getElementById("pontuacaoTotal").textContent = novaPontuacao.toFixed(2);
+    }
+
+    function validarFormulario() {
+      const loja = document.getElementById("loja").value.trim();
+      const data = document.getElementById("data").value.trim();
+      const responsavel = document.getElementById("responsavel").value.trim();
+
+      if (!loja || !data || !responsavel) {
+        alert("⚠️ Preencha todos os campos: Loja, Data e Nome do Responsável.");
+        return false;
+      }
+
+      for (let i = 0; i < perguntas.length; i++) {
+        const respondida = document.querySelector(`input[name="pergunta${i}"]:checked`);
+        if (!respondida) {
+          alert(`⚠️ Responda todas as perguntas. Pergunta ${i + 1} está em branco.`);
+          return false;
+        }
+      }
+
+      return true;
+    }
+
+      function gerarJSON() {
+      if (!validarFormulario()) return;
+  
+      const dados = {
+        loja: document.getElementById("loja").value,
+        data: document.getElementById("data").value,
+        responsavel: document.getElementById("responsavel").value,
+        pontuacao: parseFloat(document.getElementById("pontuacaoTotal").textContent)
+      };
+  
+      const blob = new Blob([JSON.stringify(dados, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "resultado_checklist.json";
+      link.click();
+    }
+  
+
+      async function gerarPDF() {
+        if (!validarFormulario()) return;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        let y = 20;
+
+        const loja = document.getElementById("loja").value;
+        const data = document.getElementById("data").value;
+        const responsavel = document.getElementById("responsavel").value;
+        const pontuacao = document.getElementById("pontuacaoTotal").textContent;
+
+        doc.setFontSize(16);
+        doc.text("Checklist Operacional - Itens com Pendências", 20, y);
+        y += 15;
+        doc.setFontSize(12);
+        doc.text(`Loja: ${loja}`, 20, y); y += 10;
+        doc.text(`Data: ${data}`, 20, y); y += 10;
+        doc.text(`Responsável: ${responsavel}`, 20, y); y += 10;
+        doc.setFontSize(14);
+        doc.text(`Pontuação Final: ${pontuacao}`, 20, y); y += 15;
+
+        doc.setFontSize(11);
+        let temPendencias = false;
+
+        perguntas.forEach((pergunta, index) => {
+          const inputSelecionado = document.querySelector(`input[name="pergunta${index}"]:checked`);
+          const respostaTexto = inputSelecionado
+            ? inputSelecionado.nextSibling.textContent.trim()
+            : "Não respondido";
+          const comentario = document.getElementById(`comentario${index}`).value.trim();
+
+          if (respostaTexto.includes("REGULAR") || respostaTexto.includes("RUIM")) {
+            temPendencias = true;
+
+            const textoPergunta = `${index + 1}. ${pergunta.texto}`;
+            const textoResposta = `Resposta: ${respostaTexto}`;
+            const textoComentario = comentario ? `Comentário: ${comentario}` : null;
+
+            const linhasPergunta = doc.splitTextToSize(textoPergunta, 170);
+            const linhasResposta = doc.splitTextToSize(textoResposta, 170);
+
+            if (y + linhasPergunta.length * 6 + linhasResposta.length * 6 > 280) {
+              doc.addPage();
+              y = 20;
+            }
+
+            linhasPergunta.forEach(linha => {
+              doc.text(linha, 20, y);
+              y += 6;
+            });
+
+            linhasResposta.forEach(linha => {
+              doc.text(linha, 20, y);
+              y += 6;
+            });
+
+            if (textoComentario) {
+              const linhasComentario = doc.splitTextToSize(textoComentario, 170);
+              linhasComentario.forEach(linha => {
+                doc.text(linha, 20, y);
+                y += 6;
+              });
+            }
+
+            y += 4;
+          }
+        });
+
+        if (!temPendencias) {
+          doc.text("Nenhuma pendência encontrada. Todos os itens estão como BOM.", 20, y);
+        }
+
+        doc.save(`Checklist_${loja || 'Loja'}_${data || 'Data'}.pdf`);
+      }
+
+        function gerarExcel() {
+        if (!validarFormulario()) return;
+
+        const loja = document.getElementById("loja").value;
+        const data = document.getElementById("data").value;
+        const responsavel = document.getElementById("responsavel").value;
+        const pontuacao = document.getElementById("pontuacaoTotal").textContent;
+
+        const linhas = [
+          ["Checklist Operacional"],
+          ["Loja", loja],
+          ["Data", data],
+          ["Responsável", responsavel],
+          ["Pontuação Final", pontuacao],
+          [],
+          ["Nº", "Pergunta", "Resposta", "Comentário"]
+        ];
+
+        perguntas.forEach((pergunta, index) => {
+          const inputSelecionado = document.querySelector(`input[name="pergunta${index}"]:checked`);
+          const respostaTexto = inputSelecionado
+            ? inputSelecionado.nextSibling.textContent.trim()
+            : "Não respondido";
+          const comentario = document.getElementById(`comentario${index}`).value.trim();
+
+          linhas.push([
+            index + 1,
+            pergunta.texto,
+            respostaTexto,
+            comentario
+          ]);
+        });
+
+        const ws = XLSX.utils.aoa_to_sheet(linhas);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Checklist");
+
+        const nomeArquivo = `Checklist_${loja || 'Loja'}_${data || 'Data'}.xlsx`;
+        XLSX.writeFile(wb, nomeArquivo);
+      }
+  </script>
+
+</body>
+</html>
