@@ -72,10 +72,12 @@
       font-size: 1rem;
       color: var(--color-secondary);
     }
-    .options {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space);
+     .options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space);
+    /* novo recuo */
+    margin-left: 1.5rem;
     }
     .options label {
       flex: 1 1 120px;
@@ -84,7 +86,10 @@
       gap: 0.5rem;
       cursor: pointer;
       font-size: 0.9rem;
+      /* novo padding interno */
+      padding-left: 0.5rem;
     }
+
     .options input[type="radio"] {
       accent-color: var(--color-primary);
     }
@@ -124,9 +129,15 @@
       background-color: #1e40af;
     }
     @media (max-width: 600px) {
-      .options label { flex: 1 1 100%; }
+      .options {
+        margin-left: 1rem;   /* recuo menor no mobile */
+      }
+      .options label {
+        flex: 1 1 100%;
+        padding-left: 1rem;  /* mais indentação por opção */
+      }
       .info { flex-direction: column; }
-    }
+    } 
   </style>
 </head>
 <body>
