@@ -415,7 +415,7 @@
             : "Não respondido";
           const comentario = document.getElementById(`comentario${index}`).value.trim();
 
-          if (respostaTexto.includes("REGULAR") || respostaTexto.includes("RUIM")) {
+          if (respostaTexto.includes("REGULAR") || respostaTexto.includes("RUPTURA COMERCIAL") || respostaTexto.includes("RUPTURA LOJA") || respostaTexto.includes("RUIM")) {
             temPendencias = true;
 
             const textoPergunta = `${index + 1}. ${pergunta.texto}`;
