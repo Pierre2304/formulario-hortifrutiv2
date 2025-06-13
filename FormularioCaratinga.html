@@ -162,6 +162,42 @@
     document.getElementById('totalPedido').textContent = total;
   }
 
+  function enviarParaGoogleSheets() {
+    const loja = document.getElementById('loja').value;
+    const data = document.getElementById('data').value;
+    const resp = document.getElementById('responsavel').value;
+
+    const dados = [];
+
+    document.querySelectorAll('#corpoTabela tr').forEach(row => {
+      if (row.style.display === 'none') return;
+
+      const tds = row.querySelectorAll('td');
+      const cod = parseFloat(tds[0].textContent) || 0;
+      const produto = tds[1].textContent;
+      const emb = parseFloat(tds[2].textContent) || 0;
+      const estoque = parseFloat(tds[3].querySelector('input').value) || 0;
+      const pedido = parseFloat(tds[4].querySelector('input').value) || 0;
+
+      dados.push({ cod, produto, emb, estoque, pedido, loja, data, responsavel: resp });
+    });
+
+    fetch('https://script.google.com/macros/s/AKfycbyMg9SOnK5KzCdExKU-zOuy7AFo83rTUt71HRTKlYK8O8nyJlthaOJBkyH2pxm9PM3jyw/exec', {
+      method: 'POST',
+      body: JSON.stringify(dados),
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.text())
+    .then(msg => {
+      console.log("Enviado com sucesso:", msg);
+      alert("Pedido enviado para o Google Sheets.");
+    })
+    .catch(err => {
+      console.error("Erro no envio:", err);
+      alert("Erro ao salvar no Google Sheets.");
+    });
+  }
+
   // --- Gerar Excel ---
   function gerarExcel() {
     const loja = document.getElementById('loja').value;
@@ -194,6 +230,9 @@
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Pedido');
     XLSX.writeFile(wb, `Pedido_CARATINGA_${loja}_${data}.xlsx`);
+    
+    // Envia os dados também para o Google Sheets
+    enviarParaGoogleSheets();
   }
 </script>
 
